@@ -67,16 +67,15 @@ bot.hears('📚 Курсы (/courses)', (ctx) => ctx.replyWithMarkdown(coursesTe
 
 // 4. Команда /site (и кнопка "Сайт")
 bot.command('site', (ctx) => {
-  // ВАЖНО: Замени ссылку на свой реальный сайт, если она другая
-  const siteUrl = 'https://savavgd.github.io/SAVAN-site/'; 
-  ctx.reply(`🌐 Наш сайт: ${siteUrl}`, Markup.inlineKeyboard([
-    Markup.button.url('Открыть сайт', siteUrl)
+  const siteUrl = 'https://savanschool.site'; // НОВЫЙ ДОМЕН
+  ctx.reply('🌐 Наш официальный сайт. Нажми на кнопку ниже, чтобы перейти:', Markup.inlineKeyboard([
+    Markup.button.url('Открыть сайт SAVAN', siteUrl)
   ]));
 });
 bot.hears('🌐 Сайт (/site)', (ctx) => {
-  const siteUrl = 'https://savavgd.github.io/SAVAN-site/'; 
-  ctx.reply(`🌐 Наш сайт: ${siteUrl}`, Markup.inlineKeyboard([
-    Markup.button.url('Открыть сайт', siteUrl)
+  const siteUrl = 'https://savanschool.site'; // НОВЫЙ ДОМЕН
+  ctx.reply('🌐 Наш официальный сайт. Нажми на кнопку ниже, чтобы перейти:', Markup.inlineKeyboard([
+    Markup.button.url('Открыть сайт SAVAN', siteUrl)
   ]));
 });
 
