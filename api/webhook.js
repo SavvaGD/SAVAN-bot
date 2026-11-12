@@ -107,31 +107,54 @@ bot.command('notify_buy', async (ctx) => {
   }
 });
 
-// --- ЭКСПОРТ ДЛЯ VERCEL ---
+// --- ЭКСПОРТ ДЛЯ VERCEL (УМНЫЙ ОБРАБОТЧИК) ---
 module.exports = async (req, res) => {
-  // Разрешаем CORS для запросов с сайта
+  // Разрешаем CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
+  // 1. Обработка preflight-запросов (OPTIONS)
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
 
-  // ЗАГЛУШКА ДЛЯ CRON-JOB (если пришел пустой GET-запрос)
+  // 2. ПУСТОЙ ЗАПРОС (Cron-job)
+  // Если это GET-запрос, отвечаем, что бот жив, и выходим.
   if (req.method === 'GET') {
     return res.status(200).send('Bot is alive');
   }
 
-  try {
-    // Если это не сообщение от Telegram, бот просто проигнорирует его без ошибки
-    if (!req.body || !req.body.update_id) {
-       return res.status(200).send('OK');
+  // 3. ЗАПРОС С САЙТА
+  // Если пришел POST-запрос, но в нем нет поля update_id (как у Telegram), значит это форма с сайта.
+  // Мы формируем фейковое сообщение от Telegram и отправляем его в наш обработчик.
+  if (req.method === 'POST' && (!req.body || !req.body.update_id)) {
+    try {
+      const text = req.body && req.body.text ? req.body.text : 'Пустая заявка';
+      const messageData = {
+        message_id: Math.floor(Math.random() * 1000000),
+        from: { id: 123456789, is_bot: false, first_name: "Site" },
+        chat: { id: 123456789, first_name: "Site", type: "private" },
+        date: Math.floor(Date.now() / 1000),
+        text: `/notify_buy ${text}`
+      };
+      
+      // Передаем это боту
+      await bot.handleUpdate({ update_id: Math.floor(Math.random() * 1000000), message: messageData });
+      return res.status(200).json({ success: true });
+    } catch (error) {
+      console.error('Ошибка при обработке заявки с сайта:', error);
+      return res.status(200).json({ success: true }); // Все равно отвечаем 200, чтобы на сайте не было ошибки
     }
+  }
+
+  // 4. ЗАПРОС ОТ TELEGRAM
+  // Если это пришло от Telegram (есть update_id), обрабатываем как обычно.
+  try {
     await bot.handleUpdate(req.body);
     res.status(200).send('OK');
   } catch (err) {
-    console.error(err);
-    res.status(200).send('Error handled'); // Отвечаем 200, чтобы Cron-job не ругался
+    console.error('Ошибка в Telegram:', err);
+    res.status(200).send('Error handled'); // Отвечаем 200, чтобы сервер не падал
   }
 };
