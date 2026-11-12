@@ -118,11 +118,20 @@ module.exports = async (req, res) => {
     return res.status(200).end();
   }
 
+  // ЗАГЛУШКА ДЛЯ CRON-JOB (если пришел пустой GET-запрос)
+  if (req.method === 'GET') {
+    return res.status(200).send('Bot is alive');
+  }
+
   try {
+    // Если это не сообщение от Telegram, бот просто проигнорирует его без ошибки
+    if (!req.body || !req.body.update_id) {
+       return res.status(200).send('OK');
+    }
     await bot.handleUpdate(req.body);
     res.status(200).send('OK');
   } catch (err) {
     console.error(err);
-    res.status(500).send('Error');
+    res.status(200).send('Error handled'); // Отвечаем 200, чтобы Cron-job не ругался
   }
 };
