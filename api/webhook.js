@@ -53,12 +53,13 @@ const signupScene = new Scenes.WizardScene(
     const contact = ctx.message.text.trim();
     const name = ctx.wizard.state.name;
     try {
-      await bot.telegram.sendMessage(ADMIN_ID, `🔥 *Новая заявка!*\n\n👤 *Имя:* ${name}\n📞 *Контакт:* ${contact}\n🔗 *Юзернейм:* @${ctx.from.username || 'нет'}`, { parse_mode: 'Markdown' });
+      const msg = await bot.telegram.sendMessage(ADMIN_ID, `🔥 *Новая заявка!*\n\n👤 *Имя:* ${name}\n📞 *Контакт:* ${contact}\n🔗 *Юзернейм:* @${ctx.from.username || 'нет'}`, { parse_mode: 'Markdown' });
+      console.log(`🤖 [TG SEND] Заявка из бота отправлена. ID сообщения: ${msg.message_id}`);
       await ctx.reply('Отлично! Заявка отправлена. Савва свяжется с тобой в ближайшее время. 🚀');
       await ctx.scene.leave();
       return showMainMenu(ctx);
     } catch (e) {
-      console.error('Ошибка при отправке заявки из бота:', e);
+      console.error('❌ [TG ERROR] Ошибка при отправке заявки из бота:', e);
       await ctx.reply('Ой, произошла ошибка при отправке. Попробуй позже.');
       return ctx.scene.leave();
     }
@@ -127,41 +128,21 @@ module.exports = async (req, res) => {
   }
 
   // 3. ЗАПРОС С САЙТА
-  // Если пришел POST-запрос, но в нем нет поля update_id (как у Telegram), значит это форма с сайта.
   if (req.method === 'POST' && (!req.body || !req.body.update_id)) {
     try {
-      // Пытаемся достать имя и телефон из разных возможных форматов
-      let name = 'Неизвестно';
-      let phone = 'Неизвестно';
-
-      if (req.body) {
-        if (req.body.name && req.body.phone) {
-          name = req.body.name;
-          phone = req.body.phone;
-        } else if (req.body.message && req.body.message.text) {
-          // Если данные пришли в формате команды
-          name = req.body.message.text;
-        }
-      }
+      const name = req.body.name || 'Неизвестно';
+      const phone = req.body.phone || 'Неизвестно';
 
       console.log(`🌐 [SITE] Пришла заявка с сайта! Пользователь: ${name}, Телефон: ${phone}`);
 
-      // Формируем сообщение для Telegram
-      const messageData = {
-        message_id: Math.floor(Math.random() * 1000000),
-        from: { id: 123456789, is_bot: false, first_name: "Site" },
-        chat: { id: 123456789, first_name: "Site", type: "private" },
-        date: Math.floor(Date.now() / 1000),
-        text: `/notify_buy Имя: ${name}, Телефон: ${phone}`
-      };
+      // Отправляем в Telegram и ЛОВИМ ответ
+      const msg = await bot.telegram.sendMessage(ADMIN_ID, `🔥 *Новая заявка с сайта!*\n\n👤 *Имя:* ${name}\n📞 *Телефон:* ${phone}`, { parse_mode: 'Markdown' });
       
-      // Передаем это боту
-      await bot.handleUpdate({ update_id: Math.floor(Math.random() * 1000000), message: messageData });
-      
-      console.log('✅ [SITE] Заявка успешно отправлена в Telegram!');
+      console.log(`✅ [SITE] Заявка успешно отправлена в Telegram! ID сообщения: ${msg.message_id}`);
       return res.status(200).json({ success: true });
     } catch (error) {
-      console.error('❌ [SITE] Ошибка при обработке заявки с сайта:', error);
+      // Если Telegram выдал ошибку, мы её увидим здесь
+      console.error(`❌ [SITE ERROR] Ошибка при отправке в Telegram:`, error.message);
       return res.status(200).json({ success: true }); 
     }
   }
@@ -173,7 +154,7 @@ module.exports = async (req, res) => {
       await bot.handleUpdate(req.body);
       res.status(200).send('OK');
     } catch (err) {
-      console.error('❌ [TG] Ошибка при обработке сообщения от Telegram:', err);
+      console.error('❌ [TG ERROR] Ошибка при обработке сообщения от Telegram:', err.message);
       res.status(200).send('Error handled');
     }
   } else {
