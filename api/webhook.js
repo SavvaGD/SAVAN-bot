@@ -86,7 +86,7 @@ bot.start((ctx) => {
 bot.command('sign', (ctx) => ctx.scene.enter('SIGNUP_SCENE'));
 bot.hears('🚀 Записаться (/sign)', (ctx) => ctx.scene.enter('SIGNUP_SCENE'));
 
-const coursesText = `📚 *Наши курсы:*\n\n🐻 *Ursula* — 3D-миры на ПРИМС\n🧩 *Scratch* — 2D-игры\n💻 *Python* — терминальные игры\n⚙️ *C* — продвинутый уровень\n🕹️ *C + Raylib* — 2D-игры\n🎮 *Unreal Engine* — 3D-игры\n\nЧтобы записаться, нажми /sign`;
+const coursesText = `📚 *Наши курсы:*\n\n🐻 *Ursula* — 3D-миры на Godot\n🧩 *Scratch* — 2D-игры\n💻 *Python* — терминальные игры\n⚙️ *C* — продвинутый уровень\n🕹️ *C + Raylib* — 2D-игры\n🎮 *Unreal Engine* — 3D-игры\n\nЧтобы записаться, нажми /sign`;
 bot.command('courses', (ctx) => ctx.replyWithMarkdown(coursesText));
 bot.hears('📚 Курсы (/courses)', (ctx) => ctx.replyWithMarkdown(coursesText));
 
@@ -99,8 +99,25 @@ bot.hears('🌐 Сайт (/site)', (ctx) => {
   ctx.reply('🌐 Наш официальный сайт:', Markup.inlineKeyboard([Markup.button.url('Открыть сайт SAVAN', siteUrl)]));
 });
 
-// --- ЭКСПОРТ ДЛЯ VERCEL (ЧИСТЫЙ БОТ) ---
+// Секретная команда для приема заявок с сайта
+bot.command('notify_buy', async (ctx) => {
+  const text = ctx.message.text.replace('/notify_buy ', '');
+  if (text) {
+    await ctx.reply(`🔥 *Новая заявка с сайта!*\n\n${text}`, { parse_mode: 'Markdown' });
+  }
+});
+
+// --- ЭКСПОРТ ДЛЯ VERCEL ---
 module.exports = async (req, res) => {
+  // Разрешаем CORS для запросов с сайта
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   try {
     await bot.handleUpdate(req.body);
     res.status(200).send('OK');
