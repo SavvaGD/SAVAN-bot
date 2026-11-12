@@ -58,7 +58,7 @@ const signupScene = new Scenes.WizardScene(
       await ctx.scene.leave();
       return showMainMenu(ctx);
     } catch (e) {
-      console.error(e);
+      console.error('Ошибка при отправке заявки из бота:', e);
       await ctx.reply('Ой, произошла ошибка при отправке. Попробуй позже.');
       return ctx.scene.leave();
     }
@@ -107,7 +107,7 @@ bot.command('notify_buy', async (ctx) => {
   }
 });
 
-// --- ЭКСПОРТ ДЛЯ VERCEL (УМНЫЙ ОБРАБОТЧИК) ---
+// --- ЭКСПОРТ ДЛЯ VERCEL (С ЛОГАМИ) ---
 module.exports = async (req, res) => {
   // Разрешаем CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -116,45 +116,68 @@ module.exports = async (req, res) => {
 
   // 1. Обработка preflight-запросов (OPTIONS)
   if (req.method === 'OPTIONS') {
+    console.log('📡 [OPTIONS] Браузер проверяет CORS.');
     return res.status(200).end();
   }
 
   // 2. ПУСТОЙ ЗАПРОС (Cron-job)
-  // Если это GET-запрос, отвечаем, что бот жив, и выходим.
   if (req.method === 'GET') {
+    console.log('⏰ [GET] Запрос от Cron-job. Бот жив.');
     return res.status(200).send('Bot is alive');
   }
 
   // 3. ЗАПРОС С САЙТА
   // Если пришел POST-запрос, но в нем нет поля update_id (как у Telegram), значит это форма с сайта.
-  // Мы формируем фейковое сообщение от Telegram и отправляем его в наш обработчик.
   if (req.method === 'POST' && (!req.body || !req.body.update_id)) {
     try {
-      const text = req.body && req.body.text ? req.body.text : 'Пустая заявка';
+      // Пытаемся достать имя и телефон из разных возможных форматов
+      let name = 'Неизвестно';
+      let phone = 'Неизвестно';
+
+      if (req.body) {
+        if (req.body.name && req.body.phone) {
+          name = req.body.name;
+          phone = req.body.phone;
+        } else if (req.body.message && req.body.message.text) {
+          // Если данные пришли в формате команды
+          name = req.body.message.text;
+        }
+      }
+
+      console.log(`🌐 [SITE] Пришла заявка с сайта! Пользователь: ${name}, Телефон: ${phone}`);
+
+      // Формируем сообщение для Telegram
       const messageData = {
         message_id: Math.floor(Math.random() * 1000000),
         from: { id: 123456789, is_bot: false, first_name: "Site" },
         chat: { id: 123456789, first_name: "Site", type: "private" },
         date: Math.floor(Date.now() / 1000),
-        text: `/notify_buy ${text}`
+        text: `/notify_buy Имя: ${name}, Телефон: ${phone}`
       };
       
       // Передаем это боту
       await bot.handleUpdate({ update_id: Math.floor(Math.random() * 1000000), message: messageData });
+      
+      console.log('✅ [SITE] Заявка успешно отправлена в Telegram!');
       return res.status(200).json({ success: true });
     } catch (error) {
-      console.error('Ошибка при обработке заявки с сайта:', error);
-      return res.status(200).json({ success: true }); // Все равно отвечаем 200, чтобы на сайте не было ошибки
+      console.error('❌ [SITE] Ошибка при обработке заявки с сайта:', error);
+      return res.status(200).json({ success: true }); 
     }
   }
 
   // 4. ЗАПРОС ОТ TELEGRAM
-  // Если это пришло от Telegram (есть update_id), обрабатываем как обычно.
-  try {
-    await bot.handleUpdate(req.body);
-    res.status(200).send('OK');
-  } catch (err) {
-    console.error('Ошибка в Telegram:', err);
-    res.status(200).send('Error handled'); // Отвечаем 200, чтобы сервер не падал
+  if (req.body && req.body.update_id) {
+    console.log(`🤖 [TG] Пришло сообщение от Telegram. Тип: ${req.body.message ? 'message' : 'другое'}`);
+    try {
+      await bot.handleUpdate(req.body);
+      res.status(200).send('OK');
+    } catch (err) {
+      console.error('❌ [TG] Ошибка при обработке сообщения от Telegram:', err);
+      res.status(200).send('Error handled');
+    }
+  } else {
+    console.log('❓ [UNKNOWN] Пришел непонятный запрос.', req.method, req.body);
+    res.status(200).send('Unknown request');
   }
 };
